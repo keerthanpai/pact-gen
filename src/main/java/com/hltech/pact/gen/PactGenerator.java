@@ -3,7 +3,9 @@ package com.hltech.pact.gen;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
+import com.hltech.pact.gen.domain.client.ClientFinder;
 import com.hltech.pact.gen.domain.client.feign.FeignClientsFinder;
+import com.hltech.pact.gen.domain.client.jaxrs.JaxrsClientsFinder;
 import com.hltech.pact.gen.domain.pact.PactFactory;
 import com.hltech.pact.gen.domain.pact.PactJsonGenerator;
 import com.hltech.pact.gen.domain.pact.Service;
@@ -18,12 +20,12 @@ import java.util.stream.Collectors;
 
 public class PactGenerator {
 
-    private final FeignClientsFinder feignClientsFinder;
+    private final ClientFinder clientFinder;
     private final PactFactory pactFactory;
     private final PactJsonGenerator pactJsonGenerator;
 
     public PactGenerator() {
-        this.feignClientsFinder = new FeignClientsFinder();
+        this.clientFinder = new FeignClientsFinder();
         this.pactFactory = new PactFactory();
         this.pactJsonGenerator = new PactJsonGenerator();
     }
@@ -31,7 +33,15 @@ public class PactGenerator {
     public PactGenerator(FeignClientsFinder feignClientsFinder,
                          PactFactory pactFactory,
                          PactJsonGenerator pactJsonGenerator) {
-        this.feignClientsFinder = feignClientsFinder;
+        this.clientFinder = feignClientsFinder;
+        this.pactFactory = pactFactory;
+        this.pactJsonGenerator = pactJsonGenerator;
+    }
+
+    public PactGenerator(JaxrsClientsFinder jaxrsClientsFinder,
+                         PactFactory pactFactory,
+                         PactJsonGenerator pactJsonGenerator) {
+        this.clientFinder = jaxrsClientsFinder;
         this.pactFactory = pactFactory;
         this.pactJsonGenerator = pactJsonGenerator;
     }
@@ -63,7 +73,7 @@ public class PactGenerator {
     private Multimap<Service, Pact> generatePacts(String packageRoot, String consumerName, ObjectMapper objectMapper) {
         Multimap<Service, Pact> providerToPactMap = HashMultimap.create();
 
-        feignClientsFinder.findFeignClients(packageRoot).stream()
+        clientFinder.findClients(packageRoot).stream()
             .map(feignClient -> pactFactory.createFromFeignClient(feignClient, consumerName, objectMapper))
             .forEach(pact -> providerToPactMap.put(pact.getProvider(), pact));
 

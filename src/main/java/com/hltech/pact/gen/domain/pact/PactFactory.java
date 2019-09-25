@@ -10,6 +10,7 @@ import com.hltech.pact.gen.domain.client.annotation.handlers.AnnotatedMethodHand
 import com.hltech.pact.gen.domain.client.annotation.MappingHandlerFactory;
 import com.hltech.pact.gen.domain.client.feign.ExcludeFeignInteraction;
 import com.hltech.pact.gen.domain.client.feign.FeignMethodRepresentationExtractor;
+import com.hltech.pact.gen.domain.client.jaxrs.JaxRSClient;
 import com.hltech.pact.gen.domain.client.model.ClientMethodRepresentation;
 import com.hltech.pact.gen.domain.client.model.Param;
 import com.hltech.pact.gen.domain.client.model.RequestRepresentation;
@@ -24,6 +25,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import uk.co.jemos.podam.api.PodamFactory;
 import uk.co.jemos.podam.api.PodamFactoryImpl;
 
+import javax.ws.rs.Path;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -50,31 +52,51 @@ public class PactFactory {
         annotatedMethodHandlers = new MappingHandlerFactory(new HandlersFactory()).createAll();
     }
 
-    public Pact createFromFeignClient(Class<?> feignClient, String consumerName, ObjectMapper objectMapper) {
+    public Pact createFromFeignClient(Class<?> client, String consumerName, ObjectMapper objectMapper) {
         ClientMethodRepresentationExtractor methodExtractor =
             new FeignMethodRepresentationExtractor(annotatedMethodHandlers);
 
-        List<Method> validFeignMethods = Arrays.stream(feignClient.getMethods())
+        List<Method> validFeignMethods = Arrays.stream(client.getMethods())
             .filter(method -> !method.isAnnotationPresent(ExcludeFeignInteraction.class))
             .collect(Collectors.toList());
 
         return Pact.builder()
-            .provider(new Service(extractProviderName(feignClient)))
+            .provider(new Service(extractProviderName(client)))
             .consumer(new Service(consumerName))
             .interactions(createInteractionsFromMethods(
-                methodExtractor, validFeignMethods, objectMapper, extractPathPrefix(feignClient)))
+                methodExtractor, validFeignMethods, objectMapper, extractPathPrefix(client)))
             .metadata(new Metadata("1.0.0"))
             .build();
     }
 
-    private String extractPathPrefix(Class<?> feignClient) {
-        FeignClient feignClientAnnotation = feignClient.getAnnotation(FeignClient.class);
-        return feignClientAnnotation.path();
+    private String extractPathPrefix(Class<?> client) {
+        FeignClient feignClientAnnotation = client.getAnnotation(FeignClient.class);
+        if (feignClientAnnotation != null) {
+            return feignClientAnnotation.path();
+        }
+
+        Path jaxrsClientPathAnnotation = client.getAnnotation(Path.class);
+        if (jaxrsClientPathAnnotation != null) {
+            return jaxrsClientPathAnnotation.value();
+        }
+
+        return StringUtils.EMPTY;
     }
 
-    private String extractProviderName(Class<?> feignClient) {
-        FeignClient feignClientAnnotation = feignClient.getAnnotation(FeignClient.class);
-        return feignClientAnnotation.value().isEmpty() ? feignClientAnnotation.name() : feignClientAnnotation.value();
+    private String extractProviderName(Class<?> client) {
+        FeignClient feignClientAnnotation = client.getAnnotation(FeignClient.class);
+
+        if (feignClientAnnotation != null &&  StringUtils.isNotEmpty(feignClientAnnotation.value())) {
+            return feignClientAnnotation.value();
+        }
+
+        if (feignClientAnnotation != null && StringUtils.isNotEmpty(feignClientAnnotation.name())) {
+            return feignClientAnnotation.name();
+        }
+
+        JaxRSClient jaxrsClientAnnotation = client.getAnnotation(JaxRSClient.class);
+
+        return jaxrsClientAnnotation.value().isEmpty() ? jaxrsClientAnnotation.name() : jaxrsClientAnnotation.value();
     }
 
     private static List<Interaction> createInteractionsFromMethods(

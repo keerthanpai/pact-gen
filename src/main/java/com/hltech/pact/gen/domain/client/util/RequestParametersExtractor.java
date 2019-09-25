@@ -4,6 +4,7 @@ import com.hltech.pact.gen.domain.client.model.Param;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ValueConstants;
 
+import javax.ws.rs.QueryParam;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
@@ -16,8 +17,15 @@ public final class RequestParametersExtractor {
 
     private RequestParametersExtractor() {}
 
-    public static List<Param> extractAll(Method feignClientMethod) {
-        return Arrays.stream(feignClientMethod.getParameters())
+    public static List<Param> extractAll(Method clientMethod) {
+        if (clientMethod.isAnnotationPresent(QueryParam.class)) {
+            return Arrays.stream(clientMethod.getParameters())
+                .filter(param -> param.getAnnotation(QueryParam.class) != null)
+                .map(RequestParametersExtractor::extractJaxrsParam)
+                .collect(Collectors.toList());
+        }
+
+        return Arrays.stream(clientMethod.getParameters())
             .filter(param -> param.getAnnotation(RequestParam.class) != null)
             .filter(param -> param.getType() != Map.class)
             .map(RequestParametersExtractor::extract)
@@ -33,6 +41,18 @@ public final class RequestParametersExtractor {
 
         return builder
             .name(extractParamName(param))
+            .type(param.getType())
+            .genericArgumentType(paramTypes.isEmpty() ? null : paramTypes.get(0))
+            .build();
+    }
+
+    private static Param extractJaxrsParam(Parameter param) {
+        Param.ParamBuilder builder = Param.builder();
+
+        List<Class<?>> paramTypes = TypeExtractor.extractParameterTypesFromType(param.getParameterizedType());
+
+        return builder
+            .name(extractJaxRsParamName(param))
             .type(param.getType())
             .genericArgumentType(paramTypes.isEmpty() ? null : paramTypes.get(0))
             .build();
@@ -54,6 +74,16 @@ public final class RequestParametersExtractor {
         if (!annotation.name().isEmpty()) {
             return annotation.name();
         } else if (!annotation.value().isEmpty()) {
+            return annotation.value();
+        }
+
+        return param.getName();
+    }
+
+    private static String extractJaxRsParamName(Parameter param) {
+        QueryParam annotation = param.getAnnotation(QueryParam.class);
+
+        if (!annotation.value().isEmpty()) {
             return annotation.value();
         }
 

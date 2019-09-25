@@ -6,6 +6,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.ValueConstants;
 
+import javax.ws.rs.HeaderParam;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
@@ -18,14 +19,33 @@ public final class RequestHeaderParamsExtractor {
 
     private RequestHeaderParamsExtractor() {}
 
-    public static List<Param> extractAll(Method feignClientMethod) {
-        return Arrays.stream(feignClientMethod.getParameters())
+    public static List<Param> extractAll(Method clientMethod) {
+        if (clientMethod.isAnnotationPresent(HeaderParam.class)) {
+            return Arrays.stream(clientMethod.getParameters())
+                .filter(param -> param.getAnnotation(HeaderParam.class) != null)
+                .map(RequestHeaderParamsExtractor::extractJaxrsHeader)
+                .collect(Collectors.toList());
+        }
+
+        return Arrays.stream(clientMethod.getParameters())
             .filter(param -> param.getAnnotation(RequestHeader.class) != null)
             .filter(param -> param.getType() != Map.class
                 && param.getType() != MultiValueMap.class
                 && param.getType() != HttpHeaders.class)
             .map(RequestHeaderParamsExtractor::extract)
             .collect(Collectors.toList());
+    }
+
+    private static Param extractJaxrsHeader(Parameter param) {
+        Param.ParamBuilder builder = Param.builder();
+
+        List<Class<?>> paramTypes = TypeExtractor.extractParameterTypesFromType(param.getParameterizedType());
+
+        return builder
+            .name(extractJaxRsHeaderName(param))
+            .type(param.getType())
+            .genericArgumentType(paramTypes.isEmpty() ? null : paramTypes.get(0))
+            .build();
     }
 
     private static Param extract(Parameter param) {
@@ -58,6 +78,16 @@ public final class RequestHeaderParamsExtractor {
         if (!annotation.name().isEmpty()) {
             return annotation.name();
         } else if (!annotation.value().isEmpty()) {
+            return annotation.value();
+        }
+
+        return param.getName();
+    }
+
+    private static String extractJaxRsHeaderName(Parameter param) {
+        HeaderParam annotation = param.getAnnotation(HeaderParam.class);
+
+        if (!annotation.value().isEmpty()) {
             return annotation.value();
         }
 

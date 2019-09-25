@@ -11,7 +11,10 @@ import com.hltech.pact.gen.domain.client.util.RequestParametersExtractor;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.bind.annotation.GetMapping;
 
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -21,11 +24,22 @@ public class GetMappingMethodsHandler implements AnnotatedMethodHandler {
 
     @Override
     public boolean isSupported(Method method) {
-        return method.isAnnotationPresent(GetMapping.class);
+        return method.isAnnotationPresent(GetMapping.class) || method.isAnnotationPresent(GET.class);
     }
 
     @Override
     public RequestRepresentation handle(Method method) {
+        if (method.isAnnotationPresent(GET.class)) {
+            return RequestRepresentation.builder()
+                .httpMethod(HttpMethod.GET)
+                .path(getPathFromMethod(method))
+                .headers(Collections.emptyList())
+                .body(RequestBodyExtractor.extract(method.getParameters()))
+                .requestParameters(RequestParametersExtractor.extractAll(method))
+                .pathParameters(PathParametersExtractor.extractAll(method))
+                .build();
+        }
+
         return RequestRepresentation.builder()
             .httpMethod(HttpMethod.GET)
             .path(getPathFromMethod(method))
@@ -39,6 +53,11 @@ public class GetMappingMethodsHandler implements AnnotatedMethodHandler {
     }
 
     private String getPathFromMethod(Method method) {
+        Path pathAnnotation = method.getAnnotation(Path.class);
+        if (pathAnnotation != null) {
+            return pathAnnotation.value();
+        }
+
         GetMapping annotation = method.getAnnotation(GetMapping.class);
         return annotation.path().length == 1 ? annotation.path()[0] : annotation.value()[0];
     }

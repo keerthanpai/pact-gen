@@ -10,7 +10,7 @@ class FeignClientsFinderUT extends Specification {
 
     def "should find feign client"() {
         when:
-            Set<Class<?>> feignClients = finder.findFeignClients('com.hltech.pact.gen.domain.client.feign.sample')
+            Set<Class<?>> feignClients = finder.findClients('com.hltech.pact.gen.domain.client.feign.sample')
 
         then:
             feignClients.size() == 18
@@ -38,7 +38,7 @@ class FeignClientsFinderUT extends Specification {
 
     def "should not find feign clients"() {
         when:
-            Set<Class<?>> feignClients = finder.findFeignClients('some.not.existing.package')
+            Set<Class<?>> feignClients = finder.findClients('some.not.existing.package')
 
         then:
             feignClients.size() == 0

@@ -17,6 +17,7 @@ buildscript {
         feignVersion = '2.0.1.RELEASE'
         jacksonVersion = '2.9.6'
         podamVersion = '7.2.0.RELEASE'
+        javaxVersion = '2.0.1'
         cglibNodepVersion = '3.2.5'
         axionReleasePluginVersion = '1.10.0'
         nexusStagingPluginVersion = '0.20.0'
@@ -66,6 +67,7 @@ dependencies {
     compile "com.fasterxml.jackson.core:jackson-core:$jacksonVersion"
     compile "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion"
     compile "uk.co.jemos.podam:podam:$podamVersion"
+    compile "javax.ws.rs:javax.ws.rs-api:$javaxVersion"
 
     compileOnly "org.projectlombok:lombok:$lombokVersion"
     annotationProcessor "org.projectlombok:lombok:$lombokVersion"
